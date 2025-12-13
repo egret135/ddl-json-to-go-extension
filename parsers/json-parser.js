@@ -35,7 +35,6 @@ function parseObjectFields(obj, parentName, nestedStructs) {
         const goFieldName = snakeToCamel(key);
 
         let goType = fieldType;
-        let comment = key;
 
         // Handle nested objects
         if (fieldType === 'object' && value !== null) {
@@ -67,8 +66,7 @@ function parseObjectFields(obj, parentName, nestedStructs) {
             } else {
                 goType = `[]${mapJSONTypeToGo(elementType)}`;
             }
-        } else if (fieldType === 'array' && Array.isArray(value) && value.length === 0) {
-            // Handle empty arrays
+        } else if (fieldType === 'array') {
             goType = '[]interface{}';
         }
 
@@ -80,14 +78,13 @@ function parseObjectFields(obj, parentName, nestedStructs) {
             nullable: value === null,
             isPrimaryKey: false,
             isAutoIncrement: false,
-            // No comment for JSON fields
+            // No comment field for JSON - this prevents "// fieldname" comments
             jsonName: key,
             dbColumn: key
         });
-        return nestedStructName;
     }
 
-    return mapJSONTypeToGo(inferType(value));
+    return fields;
 }
 
 
