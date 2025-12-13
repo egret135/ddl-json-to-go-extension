@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Test Suite</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #eee;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1,
+        h2 {
+            color: #00ADB5;
+        }
+
+        .test-case {
+            margin: 20px 0;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            border-left: 4px solid #00ADB5;
+        }
+
+        .test-input {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .test-output {
+            background: #0a3a3a;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 13px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .pass {
+            color: #00FFC6;
+        }
+
+        .fail {
+            color: #FF6B6B;
+        }
+
+        .test-result {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>DDL & JSON to Go Struct - Test Suite</h1>
+
+    <div id="testResults"></div>
+
+    <!-- Load all extension scripts -->
+    <script src="parsers/detector.js"></script>
+    <script src="parsers/mysql-parser.js"></script>
+    <script src="parsers/postgresql-parser.js"></script>
+    <script src="parsers/sqlite-parser.js"></script>
+    <script src="parsers/json-parser.js"></script>
+    <script src="generators/struct-generator.js"></script>
+
+    <script>
+        const testResults = document.getElementById('testResults');
+
+        // Test cases
+        const tests = [
+            {
+                name: 'MySQL DDL - Simple Table',
+                type: 'mysql',
+                input: `CREATE TABLE users (
+  id INT AUTO_INCREMENT PRIMARY KEY COMMENT '用户ID',
+  username VARCHAR(100) NOT NULL COMMENT '用户名',
+  email VARCHAR(255) COMMENT '邮箱地址',
+  created_at DATETIME COMMENT '创建时间'
+);`,
+                expectedFields: ['ID', 'Username', 'Email', 'CreatedAt'],
+                expectedTableName: 'users'
+            },
+            {
+                name: 'PostgreSQL DDL - With UUID',
+                type: 'postgresql',
+                input: `CREATE TABLE posts (
+  id UUID PRIMARY KEY,
+  title VARCHAR(200) NOT NULL,
+  content TEXT,
+  published BOOLEAN,
+  created_at TIMESTAMPTZ
+);`,
+                expectedFields: ['ID', 'Title', 'Content', 'Published', 'CreatedAt'],
+                expectedTableName: 'posts'
+            },
+            {
+                name: 'SQLite DDL - Simple',
+                type: 'sqlite',
+                input: `CREATE TABLE items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  price REAL
+);`,
+                expectedFields: ['ID', 'Name', 'Price'],
+                expectedTableName: 'items'
+            },
+            {
+                name: 'JSON - Simple Object',
+                type: 'json',
+                input: `{
+  "id": 1,
+  "name": "test",
+  "active": true,
+  "score": 98.5
+}`,
+                expectedFields: ['ID', 'Name', 'Active', 'Score'],
+                expectedStructName: 'Response'
+            },
+            {
+                name: 'JSON - Nested Object',
+                type: 'json',
+                input: `{
+  "user_id": 123,
+  "user_name": "john",
+  "profile": {
+    "age": 30,
+    "city": "NYC"
+  }
+}`,
+                expectedFields: ['UserID', 'UserName', 'Profile'],
+                expectedStructName: 'Response'
+            }
+        ];
+
+        // Run tests
+        function runTests() {
+            tests.forEach((test, index) => {
+                const testDiv = document.createElement('div');
+                testDiv.className = 'test-case';
+
+                let html = `<h2>Test ${index + 1}: ${test.name}</h2>`;
+                html += `<div class="test-input">${escapeHtml(test.input)}</div>`;
+
+                try {
+                    let parsedData;
+
+                    // Parse based on type
+                    switch (test.type) {
+                        case 'mysql':
+                            parsedData = parseMySQLDDL(test.input);
+                            break;
+                        case 'postgresql':
+                            parsedData = parsePostgreSQLDDL(test.input);
+                            break;
+                        case 'sqlite':
+                            parsedData = parseSQLiteDDL(test.input);
+                            break;
+                        case 'json':
+                            parsedData = parseJSON(test.input, 'Response');
+                            break;
+                    }
+
+                    if (parsedData.error) {
+                        throw new Error(parsedData.error);
+                    }
+
+                    // Verify parsed data
+                    const actualFields = parsedData.fields.map(f => f.goName);
+                    const fieldsMatch = test.expectedFields.every(f => actualFields.includes(f));
+
+                    let tableName = parsedData.tableName || parsedData.structName;
+                    const tableNameMatch = !test.expectedTableName || tableName === test.expectedTableName;
+                    const structNameMatch = !test.expectedStructName || tableName === test.expectedStructName;
+
+                    // Generate Go struct
+                    const goCode = generateGoStruct(parsedData, {
+                        generateTableName: true,
+                        packageName: 'model'
+                    });
+
+                    html += `<div class="test-output">${escapeHtml(goCode)}</div>`;
+
+                    // Check results
+                    const passed = fieldsMatch && (tableNameMatch || structNameMatch);
+
+                    html += `<div class="test-result ${passed ? 'pass' : 'fail'}">`;
+                    html += `✓ Parsed ${parsedData.fields.length} fields: ${actualFields.join(', ')}<br>`;
+                    if (test.expectedTableName) {
+                        html += `✓ Table Name: ${tableName}<br>`;
+                    }
+                    html += `✓ Generated Go struct successfully<br>`;
+                    html += `<strong>${passed ? '✅ PASS' : '❌ FAIL'}</strong>`;
+                    html += `</div>`;
+
+                } catch (error) {
+                    html += `<div class="test-result fail">❌ ERROR: ${error.message}</div>`;
+                }
+
+                testDiv.innerHTML = html;
+                testResults.appendChild(testDiv);
+            });
+
+            // Summary
+            const summary = document.createElement('div');
+            summary.className = 'test-case';
+            summary.innerHTML = `<h2>Test Summary</h2><p class="pass">Tests completed. Check results above.</p>`;
+            testResults.appendChild(summary);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Run tests on load
+        window.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+
+</html>

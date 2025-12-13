@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DDL & JSON to Go Struct</title>
+    <link rel="stylesheet" href="popup.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="title">DDL & JSON → Go Struct</h1>
+            <div class="controls">
+                <select id="dbType" class="db-selector">
+                    <option value="auto">自动检测</option>
+                    <option value="mysql">MySQL</option>
+                    <option value="postgresql">PostgreSQL</option>
+                    <option value="sqlite">SQLite</option>
+                    <option value="json">JSON</option>
+                </select>
+                <button id="convertBtn" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 2L14 8L8 14M2 8H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    转换
+                </button>
+                <button id="settingsBtn" class="btn btn-icon" title="设置">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M8 1v2M8 13v2M15 8h-2M3 8H1M13.5 2.5l-1.4 1.4M3.9 12.1l-1.4 1.4M13.5 13.5l-1.4-1.4M3.9 3.9L2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Input Panel -->
+            <div class="panel input-panel">
+                <div class="panel-header">
+                    <span class="panel-title">输入</span>
+                    <div class="panel-actions">
+                        <span id="inputType" class="badge">未检测</span>
+                        <button id="clearBtn" class="btn btn-small">清除</button>
+                    </div>
+                </div>
+                <textarea 
+                    id="inputArea" 
+                    class="code-area" 
+                    placeholder="粘贴 MySQL/PostgreSQL/SQLite DDL 或 JSON...&#10;&#10;示例：&#10;CREATE TABLE users (&#10;  id INT AUTO_INCREMENT PRIMARY KEY COMMENT '用户ID',&#10;  username VARCHAR(100) NOT NULL COMMENT '用户名'&#10;);"
+                    spellcheck="false"
+                ></textarea>
+            </div>
+
+            <!-- Output Panel -->
+            <div class="panel output-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Go Struct 输出</span>
+                    <div class="panel-actions">
+                        <button id="copyBtn" class="btn btn-small">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                                <path d="M3 11V3a1 1 0 0 1 1-1h8" stroke="currentColor" stroke-width="1.5"/>
+                            </svg>
+                            复制
+                        </button>
+                        <button id="exportBtn" class="btn btn-small">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                <path d="M8 2v8M5 7l3 3 3-3M2 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            导出
+                        </button>
+                    </div>
+                </div>
+                <pre id="outputArea" class="code-area output"><code>// 在左侧输入 DDL 或 JSON，点击"转换"按钮生成 Go struct</code></pre>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <div id="statusMessage" class="status-message">就绪</div>
+            <div class="status-info">
+                <span id="lineCount">0 行</span>
+            </div>
+        </footer>
+
+        <!-- Settings Modal (Hidden by default) -->
+        <div id="settingsModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>设置</h2>
+                    <button id="closeModal" class="btn btn-icon">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="setting-item">
+                        <label for="structNameInput">结构体名称</label>
+                        <input type="text" id="structNameInput" placeholder="留空自动生成" />
+                    </div>
+                    <div class="setting-item">
+                        <label for="packageNameInput">包名</label>
+                        <input type="text" id="packageNameInput" value="model" />
+                    </div>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="generateTableName" checked />
+                            生成 TableName() 方法
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="saveSettings" class="btn btn-primary">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="parsers/detector.js"></script>
+    <script src="parsers/mysql-parser.js"></script>
+    <script src="parsers/postgresql-parser.js"></script>
+    <script src="parsers/sqlite-parser.js"></script>
+    <script src="parsers/json-parser.js"></script>
+    <script src="utils/type-mapper.js"></script>
+    <script src="utils/formatter.js"></script>
+    <script src="utils/exporter.js"></script>
+    <script src="generators/struct-generator.js"></script>
+    <script src="config/settings.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>
