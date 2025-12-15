@@ -7,7 +7,10 @@
 ## ✨ 特性
 
 - 🎯 **多数据库支持**：MySQL、PostgreSQL、SQLite DDL 自动识别
+- ⚖️ **DDL 差异对比**：[NEW] 对比新旧 DDL 差异，自动生成 ALTER 语句
 - 📦 **JSON 转换**：支持嵌套对象的 JSON 转 Go struct
+- 🧠 **智能整数映射**：[NEW] 根据 DDL 类型精确映射 `int8/16/32` 及 `unsigned`
+- ⚡ **自动转换**：[NEW] 输入防抖自动转换，无需手动点击
 - 🏷️ **智能标签**：自动生成 `json` 和 `gorm` 标签
 - 📝 **注释保留**：DDL 中的 COMMENT 自动转为行内注释
 - 🔄 **TableName 方法**：自动生成 GORM 的 TableName() 方法
@@ -88,6 +91,28 @@ func (ScRobotXbot) TableName() string {
 }
 ```
 
+### DDL 差异对比 (New)
+
+1. 点击顶部切换到 **DDL 对比** 模式
+2. 左侧分别输入 **Target (旧)** 和 **Source (新)** DDL
+3. 右侧自动生成对应的 `ALTER TABLE` 语句
+
+**输入**：
+```sql
+-- Target (旧)
+CREATE TABLE users (id INT, name VARCHAR(100), status INT);
+
+-- Source (新)
+CREATE TABLE users (id INT, name VARCHAR(200), email VARCHAR(100));
+```
+
+**自动生成 SQL**：
+```sql
+ALTER TABLE `users` ADD COLUMN `email` VARCHAR(100);
+ALTER TABLE `users` MODIFY COLUMN `name` VARCHAR(200);
+ALTER TABLE `users` DROP COLUMN `status`;
+```
+
 ### JSON 转换示例
 
 **输入**：
@@ -155,12 +180,11 @@ ddl-json-to-go-extension/
 │   ├── postgresql-parser.js
 │   ├── sqlite-parser.js
 │   └── json-parser.js
-├── generators/
-│   └── struct-generator.js  # Go struct 生成
-├── utils/
-│   ├── type-mapper.js    # 类型映射
 │   ├── formatter.js      # 代码格式化
 │   └── exporter.js       # 文件导出
+├── generators/
+│   ├── struct-generator.js  # Go struct 生成
+│   └── diff-engine.js       # [NEW] DDL 差异对比引擎
 └── config/
     └── settings.js       # 设置管理
 ```
